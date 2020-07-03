@@ -111,12 +111,7 @@ public:
         return 0;
     }
 
-    bool equals(Big_Integer *another)
-    {
-        return this->compare_to(another) == 0;
-    }
-
-    Big_Integer *add(Big_Integer *another)
+    Big_Integer *add_utill(Big_Integer *another)
     {
         size_t res_len = MAX(this->size, another->size) + 1;
 
@@ -153,7 +148,7 @@ public:
         return result;
     }
 
-    Big_Integer *subtruct(Big_Integer *another)
+    Big_Integer *subtruct_utill(Big_Integer *another)
     {
         size_t res_len = MAX(this->size, another->size);
 
@@ -207,18 +202,56 @@ public:
         return result;
     }
 
+    bool equals(Big_Integer *another)
+    {
+        return this->compare_to(another) == 0;
+    }
+
+    Big_Integer *subtruct(Big_Integer *another)
+    {
+        if (this->is_negative() && !another->is_negative())
+        {
+            Big_Integer *result = subtruct_utill(another);
+            result->is_lower_zero = true;
+            return result;
+        }
+        else if (!this->is_negative() && !another->is_negative())
+        {
+            return subtruct_utill(another);
+        }
+        else if (!this->is_negative() && another->is_negative())
+        {
+            return add_utill(another);
+        }
+        else
+        {
+            Big_Integer *result = subtruct_utill(another);
+
+            if (this->is_negative() && this->compare_to(another) == 1)
+            {
+                result->is_lower_zero = true;
+            }
+            else
+            {
+                result->is_lower_zero = false;
+            }
+            return result;
+        }
+    }
+
     std::string to_string()
     {
-        std::string result(this->size + (this->is_negative() ? 1 : 0), ' ');
+        const int tmp = (this->is_negative() ? 1 : 0);
+        std::string result(this->size + tmp, ' ');
         size_t i = 0;
         if (this->is_negative())
         {
             result[i] = '-';
             i++;
         }
-        for (; i < this->size + (this->is_negative() ? 1 : 0); i++)
+        for (; i < this->size + tmp; i++)
         {
-            result[i] = '0' + this->digits[this->size - 1 - (i - (this->is_negative() ? 1 : 0))];
+            result[i] = '0' + this->digits[this->size - 1 - (i - tmp)];
         }
 
         return result;
