@@ -1,6 +1,7 @@
 #include <string>
 #include <cstring>
 #include <iostream>
+#include <utility>
 
 #define MAX(a, b) (a > b ? a : b)
 #define DATA_TYPE unsigned char
@@ -26,6 +27,74 @@ private:
         }
     }
 
+    int bool_to_int(bool statement)
+    {
+        if (statement)
+        {
+            return 1;
+        }
+        return -1;
+    }
+
+    /**
+     *  @param Big_Integer another num
+     *  @returns 
+     * -1 if magnitude of another number greater than magnitude of this,
+     *  0 if magnitudes are equals,
+     *  1 if magnitude of this greater than magnitude of another
+     **/
+
+    int compare_magn(Big_Integer *another)
+    {
+        if (size > another->size)
+        {
+            return bool_to_int(!this->is_lower_zero);
+        }
+        else if (size < another->size)
+        {
+            bool_to_int(another->is_lower_zero);
+        }
+
+        for (int i = size; i >= 0; i--)
+        {
+            if (this->digits[i] > another->digits[i])
+            {
+                bool_to_int(!this->is_lower_zero);
+            }
+            else if (this->digits[i] < another->digits[i])
+            {
+                bool_to_int(another->is_lower_zero);
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * @param second - BigInt which will be compared with this object
+     * @return pair {bigger, smaller}
+     **/
+
+    std::pair<Big_Integer *, Big_Integer *> max_and_min(Big_Integer *second)
+    {
+        Big_Integer *bigger = this;
+        Big_Integer *smaller = second;
+
+        if (this->compare_magn(second) == -1)
+        {
+            bigger = second;
+            smaller = this;
+        }
+        return {bigger, smaller};
+    }
+
+    static Big_Integer *create_and_init(size_t len, Big_Integer *from)
+    {
+        Big_Integer *result = new Big_Integer(len);
+        std::memcpy(result->digits, from->digits, sizeof(DATA_TYPE) * from->size);
+
+        return result;
+    }
+
 public:
     Big_Integer(std::string num) : Big_Integer(num.length())
     {
@@ -47,87 +116,8 @@ public:
         return this->is_lower_zero;
     }
 
-    /**
-     *  @param Big_Integer another num
-     *  @returns -1 if another number greater than this,
-     *  0 if they are equals,
-     *  1 if this greater than another
-     **/
-
-    int compare_to(Big_Integer *another)
+    static void add_logic(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result, Big_Integer *origin)
     {
-        int this_size = size;
-        int another_size = another->size;
-
-        if (this_size > another_size)
-        {
-            if (this->is_negative())
-            {
-                return -1;
-            }
-            else
-            {
-                return 1;
-            }
-        }
-        else if (this_size < another_size)
-        {
-            if (another->is_negative())
-            {
-                return 1;
-            }
-            else
-            {
-                return -1;
-            }
-        }
-
-        for (; this_size >= 0; this_size--)
-        {
-            if (this->digits[this_size] > another->digits[this_size])
-            {
-                if (this->is_negative())
-                {
-                    return -1;
-                }
-                else
-                {
-                    return 1;
-                }
-            }
-            else if (this->digits[this_size] < another->digits[this_size])
-            {
-                if (another->is_negative())
-                {
-                    return 1;
-                }
-                else
-                {
-                    return -1;
-                }
-            }
-        }
-
-        return 0;
-    }
-
-    Big_Integer *add_utill(Big_Integer *another)
-    {
-        size_t res_len = MAX(this->size, another->size) + 1;
-
-        Big_Integer *bigger = this;
-        Big_Integer *smaller = another;
-
-        if (this->compare_to(another) == -1)
-        {
-            bigger = another;
-            smaller = this;
-        }
-
-        Big_Integer *result = new Big_Integer(res_len);
-        std::memcpy(result->digits, bigger->digits, sizeof(DATA_TYPE) * bigger->size);
-        result->is_lower_zero = bigger->is_lower_zero;
-
         int carry = 0;
         for (int i = 0; i < smaller->size; i++)
         {
@@ -136,34 +126,18 @@ public:
             res %= 10;
             result->digits[i] = res;
         }
-
         int i = smaller->size;
-
         do
         {
             result->digits[i] += carry;
             i++;
         } while (result->digits[i - 1] >= 10);
 
-        return result;
+        //result->is_lower_zero = !(bigger == origin);
     }
 
-    Big_Integer *subtruct_utill(Big_Integer *another)
+    static void subtruct_logic(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result, Big_Integer *origin)
     {
-        size_t res_len = MAX(this->size, another->size);
-
-        Big_Integer *bigger = this;
-        Big_Integer *smaller = another;
-
-        if (this->compare_to(another) == -1)
-        {
-            bigger = another;
-            smaller = this;
-        }
-
-        Big_Integer *result = new Big_Integer(res_len);
-        std::memcpy(result->digits, bigger->digits, sizeof(DATA_TYPE) * bigger->size);
-
         int owe = 0;
         for (int i = 0; i < smaller->size; i++)
         {
@@ -177,57 +151,51 @@ public:
                 result->digits[i] = result->digits[i] - smaller->digits[i] + 10;
             }
         }
-
-        int i = smaller->size;
-
-        while (owe != 0)
+        for (int i = smaller->size; owe != 0; i++)
         {
             result->digits[i] -= owe;
             if (result->digits[i] < 0)
             {
                 owe = 1;
             }
-            i++;
         }
+        result->is_lower_zero = !(bigger == origin);
+    }
 
-        if (bigger == this)
-        {
-            result->is_lower_zero = false;
-        }
-        else
-        {
-            result->is_lower_zero = true;
-        }
-
+    Big_Integer *add_subtruct_utill(Big_Integer *another, void (*logic)(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result, Big_Integer *origin))
+    {
+        std::pair<Big_Integer *, Big_Integer *> bigger_and_smaller = max_and_min(another);
+        Big_Integer *result = Big_Integer::create_and_init(MAX(this->size, another->size) + 1, bigger_and_smaller.first);
+        logic(bigger_and_smaller.first, bigger_and_smaller.second, result, this);
         return result;
     }
 
     bool equals(Big_Integer *another)
     {
-        return this->compare_to(another) == 0;
+        return this->compare_magn(another) == 0;
     }
 
     Big_Integer *subtruct(Big_Integer *another)
     {
-        if (this->is_negative() && !another->is_negative())
+        if (this->is_lower_zero && !another->is_lower_zero)
         {
-            Big_Integer *result = subtruct_utill(another);
+            Big_Integer *result = add_subtruct_utill(another, Big_Integer::subtruct_logic);
             result->is_lower_zero = true;
             return result;
         }
-        else if (!this->is_negative() && !another->is_negative())
+        else if (!this->is_lower_zero && !another->is_lower_zero)
         {
-            return subtruct_utill(another);
+            return add_subtruct_utill(another, Big_Integer::subtruct_logic);
         }
-        else if (!this->is_negative() && another->is_negative())
+        else if (!this->is_lower_zero && another->is_lower_zero)
         {
-            return add_utill(another);
+            return add_subtruct_utill(another, Big_Integer::add_logic);
         }
         else
         {
-            Big_Integer *result = subtruct_utill(another);
+            Big_Integer *result = add_subtruct_utill(another, Big_Integer::subtruct_logic);
 
-            if (this->is_negative() && this->compare_to(another) == 1)
+            if (this->is_lower_zero && this->compare_magn(another) == 1)
             {
                 result->is_lower_zero = true;
             }
@@ -241,10 +209,10 @@ public:
 
     std::string to_string()
     {
-        const int tmp = (this->is_negative() ? 1 : 0);
+        const int tmp = (this->is_lower_zero ? 1 : 0);
         std::string result(this->size + tmp, ' ');
         size_t i = 0;
-        if (this->is_negative())
+        if (this->is_lower_zero)
         {
             result[i] = '-';
             i++;
