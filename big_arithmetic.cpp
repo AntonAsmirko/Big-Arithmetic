@@ -195,15 +195,30 @@ public:
             i++;
         } while (owe != 0);
 
+        if (bigger == this)
+        {
+            result->is_lower_zero = false;
+        }
+        else
+        {
+            result->is_lower_zero = true;
+        }
+
         return result;
     }
 
     std::string to_string()
     {
-        std::string result(this->size, ' ');
-        for (size_t i = 0; i < this->size; i++)
+        std::string result(this->size + (this->is_negative() ? 1 : 0), ' ');
+        size_t i = 0;
+        if (this->is_negative())
         {
-            result[i] = '0' + this->digits[this->size - 1 - i];
+            result[i] = '-';
+            i++;
+        }
+        for (; i < this->size + (this->is_negative() ? 1 : 0); i++)
+        {
+            result[i] = '0' + this->digits[this->size - 1 - (i - (this->is_negative() ? 1 : 0))];
         }
 
         return result;
