@@ -132,8 +132,6 @@ public:
             result->digits[i] += carry;
             i++;
         } while (result->digits[i - 1] >= 10);
-
-        //result->is_lower_zero = !(bigger == origin);
     }
 
     static void subtruct_logic(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result, Big_Integer *origin)
@@ -179,7 +177,7 @@ public:
     {
         if (this->is_lower_zero && !another->is_lower_zero)
         {
-            Big_Integer *result = add_subtruct_utill(another, Big_Integer::subtruct_logic);
+            Big_Integer *result = add_subtruct_utill(another, Big_Integer::add_logic);
             result->is_lower_zero = true;
             return result;
         }
