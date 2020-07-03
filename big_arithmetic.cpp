@@ -20,7 +20,7 @@ private:
 
     void fill(std::string num, int untlill)
     {
-        for (int i = num.length() - 1; i >= 0; i--)
+        for (int i = num.length() - 1; i >= untlill; i--)
         {
             this->digits[this->size - i - 1] = num[i] - '0';
         }
@@ -130,20 +130,70 @@ public:
         }
 
         Big_Integer *result = new Big_Integer(res_len);
-        std::memcpy(result->digits + 1, bigger->digits, sizeof(DATA_TYPE) * bigger->size);
-        std::cout << result->digits[1];
+        std::memcpy(result->digits, bigger->digits, sizeof(DATA_TYPE) * bigger->size);
         result->is_lower_zero = bigger->is_lower_zero;
 
         int carry = 0;
-        int length_offset = res_len - smaller->size;
-        for (int i = smaller->size - 1; i >= 0; i--)
+        for (int i = 0; i < smaller->size; i++)
         {
-            int res = result->digits[i + length_offset] + smaller->digits[i] + carry;
+            int res = result->digits[i] + smaller->digits[i] + carry;
             carry = res / 10;
             res %= 10;
             result->digits[i] = res;
         }
-        result->digits[0] = carry;
+
+        int i = smaller->size;
+
+        do
+        {
+            result->digits[i] += carry;
+            i++;
+        } while (result->digits[i - 1] >= 10);
+
+        return result;
+    }
+
+    Big_Integer *subtruct(Big_Integer *another)
+    {
+        size_t res_len = MAX(this->size, another->size);
+
+        Big_Integer *bigger = this;
+        Big_Integer *smaller = another;
+
+        if (this->compare_to(another) == -1)
+        {
+            bigger = another;
+            smaller = this;
+        }
+
+        Big_Integer *result = new Big_Integer(res_len);
+        std::memcpy(result->digits, bigger->digits, sizeof(DATA_TYPE) * bigger->size);
+
+        int owe = 0;
+        for (int i = 0; i < smaller->size; i++)
+        {
+            if (result->digits[i] >= smaller->digits[i] + owe)
+            {
+                result->digits[i] -= (smaller->digits[i] + owe);
+            }
+            else
+            {
+                owe = 1;
+                result->digits[i] = result->digits[i] - smaller->digits[i] + 10;
+            }
+        }
+
+        int i = smaller->size;
+
+        do
+        {
+            result->digits[i] -= owe;
+            if (result->digits[i] < 0)
+            {
+                owe = 1;
+            }
+            i++;
+        } while (owe != 0);
 
         return result;
     }
@@ -174,7 +224,7 @@ int main()
         Big_Integer *A = new Big_Integer(a);
         Big_Integer *B = new Big_Integer(b);
 
-        Big_Integer *res = A->add(B);
+        Big_Integer *res = A->subtruct(B);
 
         std::cout << res->to_string() << std::endl;
     }
