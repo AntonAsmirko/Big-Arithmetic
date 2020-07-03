@@ -180,7 +180,7 @@ public:
 
         int i = smaller->size;
 
-        do
+        while (owe != 0)
         {
             result->digits[i] -= owe;
             if (result->digits[i] < 0)
@@ -188,7 +188,7 @@ public:
                 owe = 1;
             }
             i++;
-        } while (owe != 0);
+        }
 
         if (bigger == this)
         {
