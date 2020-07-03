@@ -1,26 +1,28 @@
-#include <stdio.h>
 #include <string>
+#include <cstring>
+#include <iostream>
 
-#define NULL_STR (string) "NULL"
+#define MAX(a, b) (a > b ? a : b)
+#define DATA_TYPE unsigned char
 
 class Big_Integer
 {
 private:
     size_t size;
     bool is_lower_zero;
-    unsigned char *digits;
+    DATA_TYPE *digits;
 
     Big_Integer(size_t size)
     {
-        this->digits = new unsigned char[size];
+        this->digits = (DATA_TYPE *)malloc(sizeof(DATA_TYPE) * size);
         this->size = size;
     }
 
     void fill(std::string num, int untlill)
     {
-        for (int i = num.size() - 1; i >= 0; i++)
+        for (int i = num.length() - 1; i >= 0; i--)
         {
-            this->digits[this->size - i] = num[i];
+            this->digits[this->size - i - 1] = num[i] - '0';
         }
     }
 
@@ -116,31 +118,45 @@ public:
 
     Big_Integer *add(Big_Integer *another)
     {
-        Big_Integer *max;
+        size_t res_len = MAX(this->size, another->size) + 1;
 
-        if (this->compare_to(another) == 1)
+        Big_Integer *bigger = this;
+        Big_Integer *smaller = another;
+
+        if (this->compare_to(another) == -1)
         {
-            max = this;
-        }
-        else
-        {
-            max = another;
+            bigger = another;
+            smaller = this;
         }
 
-        size_t new_size = max->size;
+        Big_Integer *result = new Big_Integer(res_len);
+        std::memcpy(result->digits + 1, bigger->digits, sizeof(DATA_TYPE) * bigger->size);
+        std::cout << result->digits[1];
+        result->is_lower_zero = bigger->is_lower_zero;
 
-        if (this->is_negative() && !another->is_negative())
+        int carry = 0;
+        int length_offset = res_len - smaller->size;
+        for (int i = smaller->size - 1; i >= 0; i--)
         {
+            int res = result->digits[i + length_offset] + smaller->digits[i] + carry;
+            carry = res / 10;
+            res %= 10;
+            result->digits[i] = res;
         }
-        else if (!this->is_negative() && another->is_negative())
+        result->digits[0] = carry;
+
+        return result;
+    }
+
+    std::string to_string()
+    {
+        std::string result(this->size, ' ');
+        for (size_t i = 0; i < this->size; i++)
         {
+            result[i] = '0' + this->digits[this->size - 1 - i];
         }
-        else if (!this->is_negative() && !another->is_negative())
-        {
-        }
-        else
-        {
-        }
+
+        return result;
     }
 
     ~Big_Integer()
@@ -151,6 +167,16 @@ public:
 
 int main()
 {
-    Big_Integer *my_big = new Big_Integer("12345");
+    for (int i = 0; i < 100; i++)
+    {
+        std::string a, b;
+        std::cin >> a >> b;
+        Big_Integer *A = new Big_Integer(a);
+        Big_Integer *B = new Big_Integer(b);
+
+        Big_Integer *res = A->add(B);
+
+        std::cout << res->to_string() << std::endl;
+    }
     return 0;
 }
