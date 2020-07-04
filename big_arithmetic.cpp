@@ -2,9 +2,11 @@
 #include <cstring>
 #include <iostream>
 #include <utility>
+#include <cmath>
+#include <functional>
 
 #define MAX(a, b) (a > b ? a : b)
-#define DATA_TYPE unsigned char
+#define DATA_TYPE char
 
 class Big_Integer
 {
@@ -27,62 +29,40 @@ private:
         }
     }
 
-    int bool_to_int(bool statement)
-    {
-        if (statement)
-        {
-            return 1;
-        }
-        return -1;
-    }
-
-    /**
-     *  @param Big_Integer another num
-     *  @returns 
-     * -1 if magnitude of another number greater than magnitude of this,
-     *  0 if magnitudes are equals,
-     *  1 if magnitude of this greater than magnitude of another
-     **/
-
     int compare_magn(Big_Integer *another)
     {
         if (size > another->size)
         {
-            return bool_to_int(!this->is_lower_zero);
+            return 1;
         }
         else if (size < another->size)
         {
-            bool_to_int(another->is_lower_zero);
+            return -1;
         }
 
         for (int i = size; i >= 0; i--)
         {
             if (this->digits[i] > another->digits[i])
             {
-                bool_to_int(!this->is_lower_zero);
+                return 1;
             }
             else if (this->digits[i] < another->digits[i])
             {
-                bool_to_int(another->is_lower_zero);
+                return -1;
             }
         }
         return 0;
     }
 
-    /**
-     * @param second - BigInt which will be compared with this object
-     * @return pair {bigger, smaller}
-     **/
-
-    std::pair<Big_Integer *, Big_Integer *> max_and_min(Big_Integer *second)
+    static std::pair<Big_Integer *, Big_Integer *> max_and_min(Big_Integer *first, Big_Integer *second)
     {
-        Big_Integer *bigger = this;
+        Big_Integer *bigger = first;
         Big_Integer *smaller = second;
 
-        if (this->compare_magn(second) == -1)
+        if (first->compare_magn(second) == -1)
         {
             bigger = second;
-            smaller = this;
+            smaller = first;
         }
         return {bigger, smaller};
     }
@@ -116,7 +96,7 @@ public:
         return this->is_lower_zero;
     }
 
-    static void add_logic(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result, Big_Integer *origin)
+    static void abs_sum(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result)
     {
         int carry = 0;
         for (int i = 0; i < smaller->size; i++)
@@ -126,27 +106,28 @@ public:
             res %= 10;
             result->digits[i] = res;
         }
-        int i = smaller->size;
-        do
+        for (int i = smaller->size; carry != 0; i++)
         {
             result->digits[i] += carry;
-            i++;
-        } while (result->digits[i - 1] >= 10);
+            carry = result->digits[i] / 10;
+            result->digits[i] %= 10;
+        }
     }
 
-    static void subtruct_logic(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result, Big_Integer *origin)
+    static void abs_diff(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result)
     {
         int owe = 0;
         for (int i = 0; i < smaller->size; i++)
         {
-            if (result->digits[i] >= smaller->digits[i] + owe)
+            result->digits[i] -= (smaller->digits[i] + owe);
+            if (result->digits[i] >= 0)
             {
-                result->digits[i] -= (smaller->digits[i] + owe);
+                owe = 0;
             }
             else
             {
+                result->digits[i] += 10;
                 owe = 1;
-                result->digits[i] = result->digits[i] - smaller->digits[i] + 10;
             }
         }
         for (int i = smaller->size; owe != 0; i++)
@@ -154,17 +135,22 @@ public:
             result->digits[i] -= owe;
             if (result->digits[i] < 0)
             {
+                result->digits[i] += 10;
                 owe = 1;
             }
+            else
+            {
+                owe = 0;
+            }
         }
-        result->is_lower_zero = !(bigger == origin);
     }
 
-    Big_Integer *add_subtruct_utill(Big_Integer *another, void (*logic)(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result, Big_Integer *origin))
+    static Big_Integer *add_subtruct_utill(Big_Integer *first, Big_Integer *second,
+                                           void (*logic)(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result))
     {
-        std::pair<Big_Integer *, Big_Integer *> bigger_and_smaller = max_and_min(another);
-        Big_Integer *result = Big_Integer::create_and_init(MAX(this->size, another->size) + 1, bigger_and_smaller.first);
-        logic(bigger_and_smaller.first, bigger_and_smaller.second, result, this);
+        std::pair<Big_Integer *, Big_Integer *> bigger_and_smaller = Big_Integer::max_and_min(first, second);
+        Big_Integer *result = Big_Integer::create_and_init(MAX(first->size, second->size) + 1, bigger_and_smaller.first);
+        logic(bigger_and_smaller.first, bigger_and_smaller.second, result);
         return result;
     }
 
@@ -173,40 +159,53 @@ public:
         return this->compare_magn(another) == 0;
     }
 
+    Big_Integer *common_utill(Big_Integer *first, Big_Integer *second, bool predicate,
+                              void (*logic)(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result))
+    {
+        auto tmp = add_subtruct_utill(first, second, logic);
+        tmp->is_lower_zero = predicate;
+        return tmp;
+    }
+
     Big_Integer *subtruct(Big_Integer *another)
     {
-        if (this->is_lower_zero && !another->is_lower_zero)
-        {
-            Big_Integer *result = add_subtruct_utill(another, Big_Integer::add_logic);
-            result->is_lower_zero = true;
-            return result;
-        }
+        if (this->is_lower_zero && another->is_lower_zero)
+            return common_utill(this, another, compare_magn(another) == 1, Big_Integer::abs_diff);
         else if (!this->is_lower_zero && !another->is_lower_zero)
-        {
-            return add_subtruct_utill(another, Big_Integer::subtruct_logic);
-        }
+            return common_utill(this, another, compare_magn(another) == -1, Big_Integer::abs_diff);
+        else if (this->is_lower_zero && !another->is_lower_zero)
+            return common_utill(this, another, true, Big_Integer::abs_sum);
         else if (!this->is_lower_zero && another->is_lower_zero)
-        {
-            return add_subtruct_utill(another, Big_Integer::add_logic);
-        }
-        else
-        {
-            Big_Integer *result = add_subtruct_utill(another, Big_Integer::subtruct_logic);
+            return common_utill(this, another, false, Big_Integer::abs_sum);
+    }
 
-            if (this->is_lower_zero && this->compare_magn(another) == 1)
-            {
-                result->is_lower_zero = true;
-            }
-            else
-            {
-                result->is_lower_zero = false;
-            }
-            return result;
-        }
+    Big_Integer *flip_sign_and_make_op(Big_Integer *another, std::function<Big_Integer *(Big_Integer *arg)> op)
+    {
+        another->is_lower_zero = !another->is_lower_zero;
+        Big_Integer *result = op(another);
+        another->is_lower_zero = !another->is_lower_zero;
+        return result;
+    }
+
+    Big_Integer *add(Big_Integer *another)
+    {
+        if (!this->is_lower_zero && !another->is_lower_zero)
+            return common_utill(this, another, false, Big_Integer::abs_sum);
+        else if (this->is_lower_zero && another->is_lower_zero)
+            return common_utill(this, another, true, Big_Integer::abs_sum);
+        else if (!this->is_lower_zero && another->is_lower_zero)
+            return flip_sign_and_make_op(another, [another, this](Big_Integer *arg) {
+                return common_utill(this, another, compare_magn(another) == -1, Big_Integer::abs_diff);
+            });
+        else
+            return flip_sign_and_make_op(another, [another, this](Big_Integer *arg) {
+                return common_utill(this, another, compare_magn(another) == 1, Big_Integer::abs_diff);
+            });
     }
 
     std::string to_string()
     {
+
         const int tmp = (this->is_lower_zero ? 1 : 0);
         std::string result(this->size + tmp, ' ');
         size_t i = 0;
@@ -238,7 +237,7 @@ int main()
         Big_Integer *A = new Big_Integer(a);
         Big_Integer *B = new Big_Integer(b);
 
-        Big_Integer *res = A->subtruct(B);
+        Big_Integer *res = A->add(B);
 
         std::cout << res->to_string() << std::endl;
     }
