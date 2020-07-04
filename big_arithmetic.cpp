@@ -7,6 +7,7 @@
 
 #define MAX(a, b) (a > b ? a : b)
 #define DATA_TYPE char
+#define DATA_TYPE_ZERO 0
 
 class Big_Integer
 {
@@ -150,6 +151,57 @@ public:
         result->digits[i] = abs(result->digits[i]);
     }
 
+    static void mult_logic(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result)
+    {
+        const int bloc_size = (smaller->size + 1);
+        DATA_TYPE tmp_storage[bloc_size * bigger->size] = {DATA_TYPE_ZERO};
+        DATA_TYPE carriage = 0;
+        for (size_t i = 0; i < smaller->size; i++)
+        {
+            int j = 0;
+            for (; j < bigger->size; j++)
+            {
+                tmp_storage[i * bloc_size + j] = bigger->digits[j] * smaller->digits[i] + carriage;
+                if (tmp_storage[i * bloc_size + j] >= 10)
+                {
+                    carriage = tmp_storage[i * bloc_size + j] % 10;
+                    tmp_storage[i * bloc_size + j] / 10;
+                }
+            }
+            tmp_storage[i * bloc_size + j] = carriage;
+        }
+        int period = 1, period_counter = smaller->size, period_decrease_counter = smaller->size - 1;
+        bool period_counter_was_reached = false;
+        for (int i = 0; i < bigger->size + smaller->size; i++)
+        {
+            DATA_TYPE sum = 0; 
+            for (int offset = 0; offset < period; offset++)
+            {
+                sum += tmp_storage[offset * bloc_size + offset + i];
+            }
+            result->digits[i] = sum;
+            if (period < period_counter - 1 && !period_counter_was_reached)
+            {
+                period++;
+            }
+            else if (period == period_counter - 1)
+            {
+                period_counter_was_reached = true;
+            }
+            if (period_counter_was_reached)
+            {
+                if (period_decrease_counter == 0)
+                {
+                    period--;
+                }
+                else
+                {
+                    period_decrease_counter--;
+                }
+            }
+        }
+    }
+
     static Big_Integer *add_subtruct_utill(Big_Integer *first, Big_Integer *second,
                                            void (*logic)(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result))
     {
@@ -208,6 +260,15 @@ public:
             });
     }
 
+    Big_Integer *multiply(Big_Integer *another)
+    {
+        std::pair<Big_Integer *, Big_Integer *> bigger_and_smaller = Big_Integer::max_and_min(this, another);
+        Big_Integer *result = new Big_Integer(MAX(this->size, another->size));
+        Big_Integer::mult_logic(bigger_and_smaller.first, bigger_and_smaller.second, result);
+        result->is_lower_zero = this->is_lower_zero ^ another->is_lower_zero;
+        return result;
+    }
+
     std::string to_string()
     {
 
@@ -242,7 +303,7 @@ int main()
         Big_Integer *A = new Big_Integer(a);
         Big_Integer *B = new Big_Integer(b);
 
-        Big_Integer *res = A->subtruct(B);
+        Big_Integer *res = A->multiply(B);
 
         std::cout << res->to_string() << std::endl;
     }
