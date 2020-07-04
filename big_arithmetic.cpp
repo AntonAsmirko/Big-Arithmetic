@@ -25,7 +25,7 @@ private:
     {
         for (int i = num.length() - 1; i >= untlill; i--)
         {
-            this->digits[this->size - i - 1] = num[i] - '0';
+            this->digits[this->size - i - (1 - untlill)] = num[i] - '0';
         }
     }
 
@@ -76,7 +76,7 @@ private:
     }
 
 public:
-    Big_Integer(std::string num) : Big_Integer(num.length())
+    Big_Integer(std::string num) : Big_Integer(num.length() + (num[0] == '-' ? -1 : 0))
     {
 
         if (num[0] != '-')
@@ -117,7 +117,8 @@ public:
     static void abs_diff(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result)
     {
         int owe = 0;
-        for (int i = 0; i < smaller->size; i++)
+        int i = 0;
+        for (; i < smaller->size; i++)
         {
             result->digits[i] -= (smaller->digits[i] + owe);
             if (result->digits[i] >= 0)
@@ -130,19 +131,23 @@ public:
                 owe = 1;
             }
         }
-        for (int i = smaller->size; owe != 0; i++)
+        if (i != bigger->size)
         {
-            result->digits[i] -= owe;
-            if (result->digits[i] < 0)
+            for (i = smaller->size; owe != 0 && i < bigger->size; i++)
             {
-                result->digits[i] += 10;
-                owe = 1;
-            }
-            else
-            {
-                owe = 0;
+                result->digits[i] -= owe;
+                if (result->digits[i] < 0)
+                {
+                    result->digits[i] += 10;
+                    owe = 1;
+                }
+                else
+                {
+                    owe = 0;
+                }
             }
         }
+        result->digits[i] = abs(result->digits[i]);
     }
 
     static Big_Integer *add_subtruct_utill(Big_Integer *first, Big_Integer *second,
@@ -237,7 +242,7 @@ int main()
         Big_Integer *A = new Big_Integer(a);
         Big_Integer *B = new Big_Integer(b);
 
-        Big_Integer *res = A->add(B);
+        Big_Integer *res = A->subtruct(B);
 
         std::cout << res->to_string() << std::endl;
     }
