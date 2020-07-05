@@ -4,6 +4,7 @@
 #include <utility>
 #include <cmath>
 #include <functional>
+#include <vector>
 
 #define MAX(a, b) (a > b ? a : b)
 #define DATA_TYPE char
@@ -65,7 +66,9 @@ private:
     static int shrink(Big_Integer *num) {
         int cur = num->size - 1;
         for (; num->digits[cur] == 0 && cur >= 0; cur--);
-        if (cur >= 0 && ((num->digits = (DATA_TYPE *) realloc(num->digits, ++cur)) == NULL)) {
+        if (cur <= 0) cur = 1;
+        else cur++;
+        if (cur >= 0 && ((num->digits = (DATA_TYPE *) realloc(num->digits, cur)) == NULL)) {
             return 1;
         }
         num->size = cur;
@@ -138,12 +141,43 @@ private:
         return result;
     }
 
+    int compare(Big_Integer *another) {
+        if (this->is_lower_zero && !another->is_lower_zero)
+            return -1;
+        if (!this->is_lower_zero && another->is_lower_zero)
+            return 1;
+        int compare_res = compare_magn(another);
+        if (compare_res == 1) {
+            if (this->is_lower_zero && another->is_lower_zero)
+                return -1;
+            else if (!this->is_lower_zero && !another->is_lower_zero)
+                return 1;
+        } else if (compare_res == -1) {
+            if (this->is_lower_zero && another->is_lower_zero)
+                return 1;
+            else if (!this->is_lower_zero && !another->is_lower_zero)
+                return -1;
+        }
+        return 0;
+    }
+
 public:
-    Big_Integer(std::string num) : Big_Integer(num.length() + (num[0] == '-' ? -1 : 0)) {
+    Big_Integer(std::string num) : Big_Integer(num.length() - (num[0] != '-' ? 0 : 1)) {
         this->is_lower_zero = num[0] == '-';
-        this->size = num.length() - (num[0] != '-' ? 0 : 1);
         fill(num, num[0] != '-' ? 0 : 1);
     }
+
+    bool operator==(Big_Integer *other) { return compare(other) == 0; }
+
+    bool operator<(Big_Integer *other) { return compare(other) == -1; }
+
+    bool operator>(Big_Integer *other) { return compare(other) == 1; }
+
+    bool operator>=(Big_Integer *other) { return this > other || this == other; }
+
+    bool operator<=(Big_Integer *other) { return this < other || this == other; }
+
+    bool operator!=(Big_Integer *other) { return this < other || this > other; }
 
     Big_Integer *subtruct(Big_Integer *another) {
         if (this->is_lower_zero && another->is_lower_zero)
@@ -189,6 +223,42 @@ public:
         return result;
     }
 
+    Big_Integer *shift_right() {
+        Big_Integer *result = Big_Integer::create_and_init(this->size + 1, this);
+        result->digits[this->size] = result->digits[this->size - 1];
+        for (int i = result->size - 2; i > 0; --i) result->digits[i] = result->digits[i - 1];
+        result->digits[0] = 0;
+        return result;
+    }
+
+    Big_Integer *divide(Big_Integer *right) {
+        Big_Integer *b = right;
+        b->is_lower_zero = false;
+        Big_Integer *result = new Big_Integer(this->size), *current = new Big_Integer("0");
+        for (long long i = static_cast<long long>(this->size) - 1; i >= 0; --i) {
+            current = current->shift_right();
+            current->digits[0] = this->digits[i];
+            Big_Integer::shrink(current);
+            int x = 0, l = 0, r = INTERNAL_BASE;
+            while (l <= r) {
+                int m = (l + r) / 2;
+                Big_Integer *t = b->multiply(new Big_Integer(std::to_string(m)));
+                if (t <= current) {
+                    x = m;
+                    l = m + 1;
+                } else r = m - 1;
+            }
+
+            result->digits[i] = x;
+            auto tmp = b->multiply(new Big_Integer(std::to_string(x)));
+            current = current->subtruct(tmp);
+        }
+
+        result->is_lower_zero = this->is_lower_zero != right->is_lower_zero;
+        Big_Integer::shrink(result);
+        return result;
+    }
+
     std::string to_string() {
 
         const int tmp = (this->is_lower_zero ? 1 : 0);
@@ -211,15 +281,15 @@ public:
 };
 
 int main() {
-    for (int i = 0; i < 100; i++) {
-        std::string a, b;
-        std::cin >> a >> b;
-        Big_Integer *A = new Big_Integer(a);
-        Big_Integer *B = new Big_Integer(b);
-
-        Big_Integer *res = A->multiply(B);
-
-        std::cout << res->to_string() << std::endl;
-    }
+    std::string a, b;
+    std::cin >> a >> b;
+    auto *A = new Big_Integer(a);
+    auto *B = new Big_Integer(b);
+    std::cout << A->to_string()<< "<"<<B->to_string()<< " "<< (A < B)<< std::endl;
+    std::cout << A->to_string()<< ">"<<B->to_string()<< " "<< (A > B)<< std::endl;
+    std::cout << A->to_string()<< "=="<<B->to_string()<< " "<< (A == B)<< std::endl;
+    std::cout << A->to_string()<< "<="<<B->to_string()<< " "<< (A <= B)<< std::endl;
+    std::cout << A->to_string()<< ">="<<B->to_string()<< " "<< (A >= B)<< std::endl;
+    std::cout << A->to_string()<< "!="<<B->to_string()<< " "<< (A != B)<< std::endl;
     return 0;
 }
