@@ -58,24 +58,18 @@ private:
     static Big_Integer *create_and_init(size_t len, Big_Integer *from) {
         Big_Integer *result = new Big_Integer(len);
         std::memcpy(result->digits, from->digits, sizeof(DATA_TYPE) * from->size);
-
+        result->size = len;
         return result;
     }
 
-public:
-    Big_Integer(std::string num) : Big_Integer(num.length() + (num[0] == '-' ? -1 : 0)) {
-
-        if (num[0] != '-') {
-            this->is_lower_zero = false;
-            fill(num, 0);
-        } else {
-            this->is_lower_zero = true;
-            fill(num, 1);
+    static int shrink(Big_Integer *num) {
+        int cur = num->size - 1;
+        for (; num->digits[cur] == 0 && cur >= 0; cur--);
+        if (cur >= 0 && ((num->digits = (DATA_TYPE *) realloc(num->digits, ++cur)) == NULL)) {
+            return 1;
         }
-    }
-
-    bool is_negative() {
-        return this->is_lower_zero;
+        num->size = cur;
+        return 0;
     }
 
     static void abs_sum(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result) {
@@ -119,44 +113,6 @@ public:
         result->digits[i] = abs(result->digits[i]);
     }
 
-    static void mult_logic(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result) {
-        const int bloc_size = (smaller->size + 1);
-        DATA_TYPE tmp_storage[bloc_size * bigger->size] = {DATA_TYPE_ZERO};
-        DATA_TYPE carriage = 0;
-        for (size_t i = 0; i < smaller->size; i++) {
-            int j = 0;
-            for (; j < bigger->size; j++) {
-                tmp_storage[i * bloc_size + j] = bigger->digits[j] * smaller->digits[i] + carriage;
-                if (tmp_storage[i * bloc_size + j] >= 10) {
-                    carriage = tmp_storage[i * bloc_size + j] % 10;
-                    tmp_storage[i * bloc_size + j] / 10;
-                }
-            }
-            tmp_storage[i * bloc_size + j] = carriage;
-        }
-        int period = 1, period_counter = smaller->size, period_decrease_counter = smaller->size - 1;
-        bool period_counter_was_reached = false;
-        for (int i = 0; i < bigger->size + smaller->size; i++) {
-            DATA_TYPE sum = 0;
-            for (int offset = 0; offset < period; offset++) {
-                sum += tmp_storage[offset * bloc_size + offset + i];
-            }
-            result->digits[i] = sum;
-            if (period < period_counter - 1 && !period_counter_was_reached) {
-                period++;
-            } else if (period == period_counter - 1) {
-                period_counter_was_reached = true;
-            }
-            if (period_counter_was_reached) {
-                if (period_decrease_counter == 0) {
-                    period--;
-                } else {
-                    period_decrease_counter--;
-                }
-            }
-        }
-    }
-
     static Big_Integer *add_subtruct_utill(Big_Integer *first, Big_Integer *second,
                                            void (*logic)(Big_Integer *bigger, Big_Integer *smaller,
                                                          Big_Integer *result)) {
@@ -164,11 +120,8 @@ public:
         Big_Integer *result = Big_Integer::create_and_init(MAX(first->size, second->size) + 1,
                                                            bigger_and_smaller.first);
         logic(bigger_and_smaller.first, bigger_and_smaller.second, result);
+        Big_Integer::shrink(result);
         return result;
-    }
-
-    bool equals(Big_Integer *another) {
-        return this->compare_magn(another) == 0;
     }
 
     Big_Integer *common_utill(Big_Integer *first, Big_Integer *second, bool predicate,
@@ -176,6 +129,20 @@ public:
         auto tmp = add_subtruct_utill(first, second, logic);
         tmp->is_lower_zero = predicate;
         return tmp;
+    }
+
+    Big_Integer *flip_sign_and_make_op(Big_Integer *another, std::function<Big_Integer *(Big_Integer *arg)> op) {
+        another->is_lower_zero = !another->is_lower_zero;
+        Big_Integer *result = op(another);
+        another->is_lower_zero = !another->is_lower_zero;
+        return result;
+    }
+
+public:
+    Big_Integer(std::string num) : Big_Integer(num.length() + (num[0] == '-' ? -1 : 0)) {
+        this->is_lower_zero = num[0] == '-';
+        this->size = num.length() - (num[0] != '-' ? 0 : 1);
+        fill(num, num[0] != '-' ? 0 : 1);
     }
 
     Big_Integer *subtruct(Big_Integer *another) {
@@ -187,13 +154,6 @@ public:
             return common_utill(this, another, true, Big_Integer::abs_sum);
         else if (!this->is_lower_zero && another->is_lower_zero)
             return common_utill(this, another, false, Big_Integer::abs_sum);
-    }
-
-    Big_Integer *flip_sign_and_make_op(Big_Integer *another, std::function<Big_Integer *(Big_Integer *arg)> op) {
-        another->is_lower_zero = !another->is_lower_zero;
-        Big_Integer *result = op(another);
-        another->is_lower_zero = !another->is_lower_zero;
-        return result;
     }
 
     Big_Integer *add(Big_Integer *another) {
@@ -225,6 +185,7 @@ public:
             result->digits[i + this->size] = carry;
         }
         result->is_lower_zero = this->is_lower_zero ^ another->is_lower_zero;
+        Big_Integer::shrink(result);
         return result;
     }
 
