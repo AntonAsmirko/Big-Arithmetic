@@ -1,295 +1,218 @@
 #include <string>
-#include <cstring>
 #include <iostream>
 #include <utility>
-#include <cmath>
-#include <functional>
 #include <vector>
+#include <cstdio>
 
-#define MAX(a, b) (a > b ? a : b)
-#define DATA_TYPE char
-#define DATA_TYPE_ZERO 0
-#define INTERNAL_BASE 10
+#define DT char
+#define DT_ZERO (char)0
+#define INTERNAL_BASE (char)10
+#define BIG_INTEGER_ZERO BigInteger("0")
 
-class Big_Integer {
+class BigInteger {
 private:
-    size_t size;
-    bool is_lower_zero;
-    DATA_TYPE *digits;
+    std::vector<DT> digits;
+    bool isNegative{};
 
-    Big_Integer(size_t size) {
-        this->digits = (DATA_TYPE *) malloc(sizeof(DATA_TYPE) * size);
-        this->size = size;
+    BigInteger(size_t size, std::vector<DT> digits) {
+        this->digits = std::move(digits);
+        this->digits.resize(size, DT_ZERO);
+
     }
 
-    void fill(std::string num, int untlill) {
-        for (int i = num.length() - 1; i >= untlill; i--) {
-            this->digits[this->size - i - (1 - untlill)] = num[i] - '0';
+    void shrink() {
+        while (this->digits.size() > 1 && this->digits.back() == 0) {
+            this->digits.pop_back();
         }
+        if (this->digits.size() == 1 && this->digits[0] == 0) this->isNegative = false;
     }
 
-    int compare_magn(Big_Integer *another) {
-        if (size > another->size) {
-            return 1;
-        } else if (size < another->size) {
-            return -1;
-        }
-
-        for (int i = size; i >= 0; i--) {
-            if (this->digits[i] > another->digits[i]) {
-                return 1;
-            } else if (this->digits[i] < another->digits[i]) {
-                return -1;
-            }
+    int compareMagnitude(const BigInteger &another) const {
+        if (this->digits.size() > another.digits.size()) return 1;
+        else if (this->digits.size() < another.digits.size()) return -1;
+        for (size_t i = this->digits.size(); i != static_cast<size_t>(-1); i--) {
+            if (this->digits[i] > another.digits[i]) return 1;
+            else if (this->digits[i] < another.digits[i]) return -1;
         }
         return 0;
     }
 
-    static std::pair<Big_Integer *, Big_Integer *> max_and_min(Big_Integer *first, Big_Integer *second) {
-        Big_Integer *bigger = first;
-        Big_Integer *smaller = second;
-
-        if (first->compare_magn(second) == -1) {
-            bigger = second;
-            smaller = first;
-        }
-        return {bigger, smaller};
-    }
-
-    static Big_Integer *create_and_init(size_t len, Big_Integer *from) {
-        Big_Integer *result = new Big_Integer(len);
-        std::memcpy(result->digits, from->digits, sizeof(DATA_TYPE) * from->size);
-        result->size = len;
-        return result;
-    }
-
-    static int shrink(Big_Integer *num) {
-        int cur = num->size - 1;
-        for (; num->digits[cur] == 0 && cur >= 0; cur--);
-        if (cur <= 0) cur = 1;
-        else cur++;
-        if (cur >= 0 && ((num->digits = (DATA_TYPE *) realloc(num->digits, cur)) == NULL)) {
-            return 1;
-        }
-        num->size = cur;
-        return 0;
-    }
-
-    static void abs_sum(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result) {
-        int carry = 0;
-        for (int i = 0; i < smaller->size; i++) {
-            int res = result->digits[i] + smaller->digits[i] + carry;
-            carry = res / 10;
-            res %= 10;
-            result->digits[i] = res;
-        }
-        for (int i = smaller->size; carry != 0; i++) {
-            result->digits[i] += carry;
-            carry = result->digits[i] / 10;
-            result->digits[i] %= 10;
-        }
-    }
-
-    static void abs_diff(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result) {
-        int owe = 0;
-        int i = 0;
-        for (; i < smaller->size; i++) {
-            result->digits[i] -= (smaller->digits[i] + owe);
-            if (result->digits[i] >= 0) {
-                owe = 0;
-            } else {
-                result->digits[i] += 10;
-                owe = 1;
-            }
-        }
-        if (i != bigger->size) {
-            for (i = smaller->size; owe != 0 && i < bigger->size; i++) {
-                result->digits[i] -= owe;
-                if (result->digits[i] < 0) {
-                    result->digits[i] += 10;
-                    owe = 1;
-                } else {
-                    owe = 0;
-                }
-            }
-        }
-        result->digits[i] = abs(result->digits[i]);
-    }
-
-    static Big_Integer *add_subtruct_utill(Big_Integer *first, Big_Integer *second,
-                                           void (*logic)(Big_Integer *bigger, Big_Integer *smaller,
-                                                         Big_Integer *result)) {
-        std::pair<Big_Integer *, Big_Integer *> bigger_and_smaller = Big_Integer::max_and_min(first, second);
-        Big_Integer *result = Big_Integer::create_and_init(MAX(first->size, second->size) + 1,
-                                                           bigger_and_smaller.first);
-        logic(bigger_and_smaller.first, bigger_and_smaller.second, result);
-        Big_Integer::shrink(result);
-        return result;
-    }
-
-    Big_Integer *common_utill(Big_Integer *first, Big_Integer *second, bool predicate,
-                              void (*logic)(Big_Integer *bigger, Big_Integer *smaller, Big_Integer *result)) {
-        auto tmp = add_subtruct_utill(first, second, logic);
-        tmp->is_lower_zero = predicate;
-        return tmp;
-    }
-
-    Big_Integer *flip_sign_and_make_op(Big_Integer *another, std::function<Big_Integer *(Big_Integer *arg)> op) {
-        another->is_lower_zero = !another->is_lower_zero;
-        Big_Integer *result = op(another);
-        another->is_lower_zero = !another->is_lower_zero;
-        return result;
-    }
-
-    int compare(Big_Integer *another) {
-        if (this->is_lower_zero && !another->is_lower_zero)
-            return -1;
-        if (!this->is_lower_zero && another->is_lower_zero)
-            return 1;
-        int compare_res = compare_magn(another);
+    int compare(const BigInteger &another) const {
+        if (this->isNegative && !another.isNegative) return -1;
+        if (!this->isNegative && another.isNegative) return 1;
+        int compare_res = compareMagnitude(another);
         if (compare_res == 1) {
-            if (this->is_lower_zero && another->is_lower_zero)
-                return -1;
-            else if (!this->is_lower_zero && !another->is_lower_zero)
-                return 1;
+            if (this->isNegative && another.isNegative) return -1;
+            else if (!this->isNegative && !another.isNegative) return 1;
         } else if (compare_res == -1) {
-            if (this->is_lower_zero && another->is_lower_zero)
-                return 1;
-            else if (!this->is_lower_zero && !another->is_lower_zero)
-                return -1;
+            if (this->isNegative && another.isNegative) return 1;
+            else if (!this->isNegative && !another.isNegative) return -1;
         }
         return 0;
+    }
+
+    static void absSum(const BigInteger &smaller, BigInteger &result) {
+        int carry = 0;
+        for (size_t i = 0;
+             i < std::max(result.digits.size(), smaller.digits.size()) || carry != 0; ++i) {
+            if (i == result.digits.size()) result.digits.push_back(0);
+            result.digits[i] += carry + (i < smaller.digits.size() ? smaller.digits[i] : 0);
+            carry = result.digits[i] >= INTERNAL_BASE;
+            if (carry != 0) result.digits[i] -= INTERNAL_BASE;
+        }
+    }
+
+    static void absDiff(const BigInteger &smaller, BigInteger &result) {
+        int carry = 0;
+        for (size_t i = 0; i < smaller.digits.size() || carry != 0; ++i) {
+            result.digits[i] -= carry + (i < smaller.digits.size() ? smaller.digits[i] : 0);
+            carry = result.digits[i] < DT_ZERO;
+            if (carry != 0) result.digits[i] += INTERNAL_BASE;
+        }
     }
 
 public:
-    Big_Integer(std::string num) : Big_Integer(num.length() - (num[0] != '-' ? 0 : 1)) {
-        this->is_lower_zero = num[0] == '-';
-        fill(num, num[0] != '-' ? 0 : 1);
+    explicit BigInteger(std::string num) {
+        this->isNegative = num[0] == '-';
+        this->digits.resize(num.length() - (this->isNegative ? 1 : 0));
+        for (size_t i = 0; i < this->digits.size(); i++)
+            this->digits[i] = num[num.length() - i - 1] - '0';
     }
 
-    bool operator==(Big_Integer *other) { return compare(other) == 0; }
+    bool operator==(const BigInteger &other) const { return compare(other) == 0; }
 
-    bool operator<(Big_Integer *other) { return compare(other) == -1; }
+    bool operator!=(const BigInteger &other) const { return compare(other) != 0; }
 
-    bool operator>(Big_Integer *other) { return compare(other) == 1; }
+    bool operator>(const BigInteger &other) const { return compare(other) == 1; }
 
-    bool operator>=(Big_Integer *other) { return this > other || this == other; }
+    bool operator<(const BigInteger &other) const { return compare(other) == -1; }
 
-    bool operator<=(Big_Integer *other) { return this < other || this == other; }
-
-    bool operator!=(Big_Integer *other) { return this < other || this > other; }
-
-    Big_Integer *subtruct(Big_Integer *another) {
-        if (this->is_lower_zero && another->is_lower_zero)
-            return common_utill(this, another, compare_magn(another) == 1, Big_Integer::abs_diff);
-        else if (!this->is_lower_zero && !another->is_lower_zero)
-            return common_utill(this, another, compare_magn(another) == -1, Big_Integer::abs_diff);
-        else if (this->is_lower_zero && !another->is_lower_zero)
-            return common_utill(this, another, true, Big_Integer::abs_sum);
-        else if (!this->is_lower_zero && another->is_lower_zero)
-            return common_utill(this, another, false, Big_Integer::abs_sum);
+    bool operator>=(const BigInteger &other) const {
+        int compare_result = compare(other);
+        return compare_result == 1 || compare_result == 0;
     }
 
-    Big_Integer *add(Big_Integer *another) {
-        if (!this->is_lower_zero && !another->is_lower_zero)
-            return common_utill(this, another, false, Big_Integer::abs_sum);
-        else if (this->is_lower_zero && another->is_lower_zero)
-            return common_utill(this, another, true, Big_Integer::abs_sum);
-        else if (!this->is_lower_zero && another->is_lower_zero)
-            return flip_sign_and_make_op(another, [another, this](Big_Integer *arg) {
-                return common_utill(this, another, compare_magn(another) == -1, Big_Integer::abs_diff);
-            });
-        else
-            return flip_sign_and_make_op(another, [another, this](Big_Integer *arg) {
-                return common_utill(this, another, compare_magn(another) == 1, Big_Integer::abs_diff);
-            });
+    bool operator<=(const BigInteger &other) const {
+        int compare_result = compare(other);
+        return compare_result == -1 || compare_result == 0;
     }
 
-    Big_Integer *multiply(Big_Integer *another) {
-        const size_t res_size = sizeof(DATA_TYPE) * (this->size + another->size);
-        Big_Integer *result = new Big_Integer(res_size);
-        std::memset(result->digits, DATA_TYPE_ZERO, sizeof(this->size + another->size));
-        for (int i = 0; i < another->size; i++) {
-            DATA_TYPE carry = 0;
-            for (int j = 0; j < this->size; j++) {
-                result->digits[i + j] += carry + this->digits[j] * another->digits[i];
-                carry = result->digits[i + j] / INTERNAL_BASE;
-                result->digits[i + j] %= INTERNAL_BASE;
-            }
-            result->digits[i + this->size] = carry;
+    BigInteger operator+(const BigInteger &other) const {
+        bool areSignsSame = !(this->isNegative ^ other.isNegative);
+        if (compareMagnitude(other) == 0 && !areSignsSame) return BIG_INTEGER_ZERO;
+        BigInteger maxByMagnitude = compareMagnitude(other) == 1 ? *this : other;
+        BigInteger minByMagnitude = compareMagnitude(other) == -1 ? *this : other;
+        BigInteger result(maxByMagnitude.digits.size() + 1, maxByMagnitude.digits);
+        if (areSignsSame) {
+            absSum(minByMagnitude, result);
+            result.isNegative = this->isNegative;
+        } else {
+            absDiff(minByMagnitude, result);
+            result.isNegative = maxByMagnitude.isNegative;
         }
-        result->is_lower_zero = this->is_lower_zero ^ another->is_lower_zero;
-        Big_Integer::shrink(result);
+        result.shrink();
         return result;
     }
 
-    Big_Integer *shift_right() {
-        Big_Integer *result = Big_Integer::create_and_init(this->size + 1, this);
-        result->digits[this->size] = result->digits[this->size - 1];
-        for (int i = result->size - 2; i > 0; --i) result->digits[i] = result->digits[i - 1];
-        result->digits[0] = 0;
+    BigInteger operator*(const BigInteger &other) const {
+        if (*this == BIG_INTEGER_ZERO || other == BIG_INTEGER_ZERO) return BIG_INTEGER_ZERO;
+        const size_t res_size = this->digits.size() + other.digits.size();
+        BigInteger result(res_size, std::vector<DT>(res_size, DT_ZERO));
+        for (size_t i = 0; i < other.digits.size(); i++) {
+            DT carry = DT_ZERO;
+            for (size_t j = 0; j < this->digits.size(); j++) {
+                result.digits[i + j] += carry + this->digits[j] * other.digits[i];
+                carry = (DT) (result.digits[i + j] / INTERNAL_BASE);
+                result.digits[i + j] %= INTERNAL_BASE;
+            }
+            result.digits[i + this->digits.size()] = carry;
+        }
+        result.isNegative = this->isNegative ^ other.isNegative;
+        result.shrink();
         return result;
     }
 
-    Big_Integer *divide(Big_Integer *right) {
-        Big_Integer *b = right;
-        b->is_lower_zero = false;
-        Big_Integer *result = new Big_Integer(this->size), *current = new Big_Integer("0");
-        for (long long i = static_cast<long long>(this->size) - 1; i >= 0; --i) {
-            current = current->shift_right();
-            current->digits[0] = this->digits[i];
-            Big_Integer::shrink(current);
+    BigInteger operator-(const BigInteger &other) const {
+        BigInteger tmp = other * BigInteger("-1");
+        return *this + tmp;
+    }
+
+    BigInteger rightShift() const {
+        BigInteger result(this->digits.size(), this->digits);
+        result.digits.push_back(this->digits[this->digits.size() - 1]);
+        for (size_t i = result.digits.size() - 2; i > 0; --i) result.digits[i] = result.digits[i - 1];
+        result.digits[0] = 0;
+        return result;
+    }
+
+    BigInteger operator/(const BigInteger &other) const {
+        if (other == BIG_INTEGER_ZERO) {
+
+        }
+        BigInteger tmp = other;
+        tmp.isNegative = false;
+        BigInteger result(this->digits.size(), std::vector<DT>(this->digits.size(), 0));
+        BigInteger current("0");
+        for (long long i = static_cast<long long>(this->digits.size()) - 1; i >= 0; --i) {
+            current = current.rightShift();
+            current.digits[0] = this->digits[i];
+            current.shrink();
             int x = 0, l = 0, r = INTERNAL_BASE;
             while (l <= r) {
                 int m = (l + r) / 2;
-                Big_Integer *t = b->multiply(new Big_Integer(std::to_string(m)));
+                BigInteger t = tmp * BigInteger(std::to_string(m));
                 if (t <= current) {
                     x = m;
                     l = m + 1;
                 } else r = m - 1;
             }
 
-            result->digits[i] = x;
-            auto tmp = b->multiply(new Big_Integer(std::to_string(x)));
-            current = current->subtruct(tmp);
+            result.digits[i] = x;
+            current = current - tmp * BigInteger(std::to_string(x));
         }
 
-        result->is_lower_zero = this->is_lower_zero != right->is_lower_zero;
-        Big_Integer::shrink(result);
+        result.isNegative = this->isNegative != other.isNegative;
+        result.shrink();
         return result;
     }
 
-    std::string to_string() {
-
-        const int tmp = (this->is_lower_zero ? 1 : 0);
-        std::string result(this->size + tmp, ' ');
-        size_t i = 0;
-        if (this->is_lower_zero) {
-            result[i] = '-';
-            i++;
-        }
-        for (; i < this->size + tmp; i++) {
-            result[i] = '0' + this->digits[this->size - 1 - (i - tmp)];
-        }
-
+    BigInteger operator%(const BigInteger &other) {
+        BigInteger result = *this - *this / other * other;
+        if (result.isNegative) result = result + other;
         return result;
     }
 
-    ~Big_Integer() {
-        delete[] digits;
+    BigInteger sqrt() {
+        BigInteger one = BigInteger("1");
+        if (*this == BIG_INTEGER_ZERO || *this == one) return *this;
+        BigInteger result = one, i = one;
+        while (result <= *this) {
+            i = i + one;
+            result = i * i;
+        }
+        return i - one;
+    }
+
+    std::string toString() const {
+        const size_t tmp = (this->isNegative ? 1 : 0);
+        std::string result(this->digits.size() + tmp, ' ');
+        if (this->isNegative) result[0] = '-';
+        for (size_t i = tmp; i < this->digits.size() + tmp; i++) {
+            result[i] = '0' + this->digits[this->digits.size() - 1 - (i - tmp)];
+        }
+        return result;
     }
 };
 
 int main() {
-    std::string a, b;
-    std::cin >> a >> b;
-    auto *A = new Big_Integer(a);
-    auto *B = new Big_Integer(b);
-    std::cout << A->to_string()<< "<"<<B->to_string()<< " "<< (A < B)<< std::endl;
-    std::cout << A->to_string()<< ">"<<B->to_string()<< " "<< (A > B)<< std::endl;
-    std::cout << A->to_string()<< "=="<<B->to_string()<< " "<< (A == B)<< std::endl;
-    std::cout << A->to_string()<< "<="<<B->to_string()<< " "<< (A <= B)<< std::endl;
-    std::cout << A->to_string()<< ">="<<B->to_string()<< " "<< (A >= B)<< std::endl;
-    std::cout << A->to_string()<< "!="<<B->to_string()<< " "<< (A != B)<< std::endl;
+    freopen("INPUT.TXT", "r", stdin);
+    freopen("OUTPUT.TXT", "w", stdout);
+    std::string a;
+    std::cin >> a;
+    BigInteger A(a);
+    BigInteger tmp = (A.sqrt());
+    std::cout << tmp.toString();
+    fclose(stdout);
+    fclose(stdin);
     return 0;
 }
