@@ -2,6 +2,7 @@
 #include <iostream>
 #include <utility>
 #include <vector>
+#include <stdio.h>
 
 #define DT char
 #define DT_ZERO (char)0
@@ -28,11 +29,10 @@ private:
     }
 
     void shrink() {
-        INDEX_DT i = this->digits.size() - INDEX_DT_ONE;
-        INDEX_DT j = i;
-        for (; this->digits[j] == INDEX_DT_ZERO && j != static_cast<INDEX_DT>(-INDEX_DT_ONE); j--);
-        this->size = digits.size() - (i - (j + INDEX_DT_ONE)) - INDEX_DT_ONE;
-        this->digits.resize(this->size);
+        while (this->digits.size() > 1 && this->digits.back() == 0) {
+            this->digits.pop_back();
+        }
+        if (this->digits.size() == 1 && this->digits[0] == 0) this->isNegative = false;
     }
 
     int compareMagnitude(const BigInteger &another) const {
@@ -59,45 +59,24 @@ private:
         return 0;
     }
 
-    static void absSum(const BigInteger &bigger, const BigInteger &smaller, BigInteger &result) {
-        DT carry = DT_ZERO;
-        for (INDEX_DT i = INDEX_DT_ZERO; i < smaller.size; i++) {
-            DT res = (DT) (result.digits[i] + smaller.digits[i] + carry);
-            carry = (DT) (res / INTERNAL_BASE);
-            res %= INTERNAL_BASE;
-            result.digits[i] = res;
-        }
-        for (INDEX_DT i = smaller.size; carry != DT_ZERO; i++) {
-            result.digits[i] += carry;
-            carry = (DT) (result.digits[i] / INTERNAL_BASE);
-            result.digits[i] %= INTERNAL_BASE;
+    static void absSum(const BigInteger &smaller, BigInteger &result) {
+        int carry = 0;
+        for (INDEX_DT i = INDEX_DT_ZERO;
+             i < std::max(result.digits.size(), smaller.digits.size()) || carry != 0; ++i) {
+            if (i == result.digits.size()) result.digits.push_back(0);
+            result.digits[i] += carry + (i < smaller.digits.size() ? smaller.digits[i] : INDEX_DT_ZERO);
+            carry = result.digits[i] >= INTERNAL_BASE;
+            if (carry != 0) result.digits[i] -= INTERNAL_BASE;
         }
     }
 
-    static void absDiff(const BigInteger &bigger, const BigInteger &smaller, BigInteger &result) {
-        DT owe = DT_ZERO;
-        INDEX_DT i = INDEX_DT_ZERO;
-        for (; i < smaller.size; i++) {
-            result.digits[i] -= (smaller.digits[i] + owe);
-            if (result.digits[i] >= DT_ZERO) {
-                owe = DT_ZERO;
-            } else {
-                result.digits[i] += INTERNAL_BASE;
-                owe = DT_ONE;
-            }
+    static void absDiff(const BigInteger &smaller, BigInteger &result) {
+        int carry = 0;
+        for (INDEX_DT i = INDEX_DT_ZERO; i < smaller.digits.size() || carry != 0; ++i) {
+            result.digits[i] -= carry + (i < smaller.digits.size() ? smaller.digits[i] : 0);
+            carry = result.digits[i] < DT_ZERO;
+            if (carry != 0) result.digits[i] += INTERNAL_BASE;
         }
-        if (i != bigger.size) {
-            for (i = smaller.size; owe != DT_ZERO && i < bigger.size; i++) {
-                result.digits[i] -= owe;
-                if (result.digits[i] < DT_ZERO) {
-                    result.digits[i] += INTERNAL_BASE;
-                    owe = DT_ONE;
-                } else {
-                    owe = DT_ZERO;
-                }
-            }
-        }
-        result.digits[i] = abs(result.digits[i]);
     }
 
 public:
@@ -130,17 +109,17 @@ public:
     BigInteger operator+(const BigInteger &other) const {
         bool areSignsSame = !(this->isNegative ^ other.isNegative);
         if (compareMagnitude(other) == 0 && !areSignsSame) return BIG_INTEGER_ZERO;
-        BigInteger max = MAX(*this, other), min = MIN(*this, other);
         BigInteger maxByMagnitude = compareMagnitude(other) == 1 ? *this : other;
         BigInteger minByMagnitude = compareMagnitude(other) == -1 ? *this : other;
-        BigInteger result(maxByMagnitude.size + INDEX_DT_ONE, maxByMagnitude.digits);
-        if (areSignsSame) {
-            absSum(max, min, result);
-            result.isNegative = this->isNegative;
-        } else {
-            absDiff(maxByMagnitude, minByMagnitude, result);
-            result.isNegative = maxByMagnitude.isNegative;
-        }
+        BigInteger result(maxByMagnitude.size, maxByMagnitude.digits);
+//        if (areSignsSame) {
+//            absSum(minByMagnitude, result);
+//            result.isNegative = this->isNegative;
+//        } else {
+//            absDiff(minByMagnitude, result);
+//            result.isNegative = maxByMagnitude.isNegative;
+//        }
+        absSum(minByMagnitude, result);
         result.shrink();
         return result;
     }
@@ -170,11 +149,11 @@ public:
         BigInteger minByMagnitude = compareMagnitude(other) == -1 ? *this : other;
         BigInteger result(maxByMagnitude.size + INDEX_DT_ONE, maxByMagnitude.digits);
         if (areSignsSame) {
-            absDiff(maxByMagnitude, minByMagnitude, result);
+            absDiff(minByMagnitude, result);
             result.isNegative =
                     (*this == maxByMagnitude && this->isNegative) || (other == maxByMagnitude && !other.isNegative);
         } else {
-            absSum(maxByMagnitude, minByMagnitude, result);
+            absSum(minByMagnitude, result);
             result.isNegative = (maxByMagnitude.isNegative && maxByMagnitude == *this) ||
                                 (!maxByMagnitude.isNegative && maxByMagnitude == other);
         }
@@ -194,10 +173,14 @@ public:
 };
 
 int main() {
+    freopen("INPUT.TXT", "r", stdin);
+    freopen("OUTPUT.TXT", "w", stdout);
     std::string a, b;
     std::cin >> a >> b;
     BigInteger A(a), B(b);
-    BigInteger tmp = (A * B);
-    std::cout << A.toString() << " + " << B.toString() << " = " << tmp.toString();
+    BigInteger tmp = (A + B);
+    std::cout << tmp.toString();
+    fclose(stdout);
+    fclose(stdin);
     return 0;
 }
