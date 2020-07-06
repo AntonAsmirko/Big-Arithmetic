@@ -12,6 +12,7 @@
 #define INDEX_DT_ZERO 0ul
 #define MAX(a, b) (a > b ? a : b)
 #define MIN(a, b) (a < b ? a : b)
+#define BIG_INTEGER_ZERO BigInteger("0")
 
 class BigInteger {
 private:
@@ -29,7 +30,7 @@ private:
     void shrink() {
         INDEX_DT i = this->digits.size() - INDEX_DT_ONE;
         INDEX_DT j = i;
-        for (; this->digits[j] == INDEX_DT_ZERO && j > INDEX_DT_ZERO; j--);
+        for (; this->digits[j] == INDEX_DT_ZERO && j != static_cast<INDEX_DT>(-INDEX_DT_ONE); j--);
         this->size = digits.size() - (i - (j + INDEX_DT_ONE)) - INDEX_DT_ONE;
         this->digits.resize(this->size);
     }
@@ -37,7 +38,7 @@ private:
     int compareMagnitude(const BigInteger &another) const {
         if (size > another.size) return 1;
         else if (size < another.size) return -1;
-        for (INDEX_DT i = size; i >= INDEX_DT_ZERO; i--) {
+        for (INDEX_DT i = size; i != static_cast<INDEX_DT>(-INDEX_DT_ONE); i--) {
             if (this->digits[i] > another.digits[i]) return 1;
             else if (this->digits[i] < another.digits[i]) return -1;
         }
@@ -128,6 +129,7 @@ public:
 
     BigInteger operator+(const BigInteger &other) const {
         bool areSignsSame = !(this->isNegative ^ other.isNegative);
+        if (compareMagnitude(other) == 0 && !areSignsSame) return BIG_INTEGER_ZERO;
         BigInteger max = MAX(*this, other), min = MIN(*this, other);
         BigInteger maxByMagnitude = compareMagnitude(other) == 1 ? *this : other;
         BigInteger minByMagnitude = compareMagnitude(other) == -1 ? *this : other;
@@ -144,6 +146,7 @@ public:
     }
 
     BigInteger operator*(const BigInteger &other) const {
+        if (*this == BIG_INTEGER_ZERO || other == BIG_INTEGER_ZERO) return BIG_INTEGER_ZERO;
         const INDEX_DT res_size = this->size + other.size;
         BigInteger result(res_size, std::vector<DT>(res_size, DT_ZERO));
         for (INDEX_DT i = INDEX_DT_ZERO; i < other.size; i++) {
@@ -160,7 +163,26 @@ public:
         return result;
     }
 
-    std::string toString() {
+    BigInteger operator-(const BigInteger &other) const {
+        if (*this == other) return BIG_INTEGER_ZERO;
+        bool areSignsSame = !(this->isNegative ^ other.isNegative);
+        BigInteger maxByMagnitude = compareMagnitude(other) == 1 ? *this : other;
+        BigInteger minByMagnitude = compareMagnitude(other) == -1 ? *this : other;
+        BigInteger result(maxByMagnitude.size + INDEX_DT_ONE, maxByMagnitude.digits);
+        if (areSignsSame) {
+            absDiff(maxByMagnitude, minByMagnitude, result);
+            result.isNegative =
+                    (*this == maxByMagnitude && this->isNegative) || (other == maxByMagnitude && !other.isNegative);
+        } else {
+            absSum(maxByMagnitude, minByMagnitude, result);
+            result.isNegative = (maxByMagnitude.isNegative && maxByMagnitude == *this) ||
+                                (!maxByMagnitude.isNegative && maxByMagnitude == other);
+        }
+        result.shrink();
+        return result;
+    }
+
+    std::string toString() const {
         const INDEX_DT tmp = (this->isNegative ? INDEX_DT_ONE : INDEX_DT_ZERO);
         std::string result(this->size + tmp, ' ');
         if (this->isNegative) result[INDEX_DT_ZERO] = '-';
