@@ -7,12 +7,12 @@
 #define DT char
 #define DT_ZERO (char)0
 #define INTERNAL_BASE (char)10
-#define BIG_INTEGER_ZERO BigInteger("0")
 
 class BigInteger {
 private:
     std::vector<DT> digits;
     bool isNegative{};
+    bool isNaN{};
 
     BigInteger(size_t size, std::vector<DT> digits) {
         this->digits = std::move(digits);
@@ -71,6 +71,8 @@ private:
         }
     }
 
+    static bool isZero(const BigInteger &num) { return num.digits.size() == 1 && num.toString() == "0"; }
+
 public:
     explicit BigInteger(std::string num) {
         this->isNegative = num[0] == '-';
@@ -99,7 +101,7 @@ public:
 
     BigInteger operator+(const BigInteger &other) const {
         bool areSignsSame = !(this->isNegative ^ other.isNegative);
-        if (compareMagnitude(other) == 0 && !areSignsSame) return BIG_INTEGER_ZERO;
+        if (compareMagnitude(other) == 0 && !areSignsSame) return BigInteger("0");
         BigInteger maxByMagnitude = compareMagnitude(other) == 1 ? *this : other;
         BigInteger minByMagnitude = compareMagnitude(other) == -1 ? *this : other;
         BigInteger result(maxByMagnitude.digits.size() + 1, maxByMagnitude.digits);
@@ -115,7 +117,7 @@ public:
     }
 
     BigInteger operator*(const BigInteger &other) const {
-        if (*this == BIG_INTEGER_ZERO || other == BIG_INTEGER_ZERO) return BIG_INTEGER_ZERO;
+        if (isZero(*this) || isZero(other)) return BigInteger("0");
         const size_t res_size = this->digits.size() + other.digits.size();
         BigInteger result(res_size, std::vector<DT>(res_size, DT_ZERO));
         for (size_t i = 0; i < other.digits.size(); i++) {
@@ -146,20 +148,20 @@ public:
     }
 
     BigInteger operator/(const BigInteger &other) const {
-        if (other == BIG_INTEGER_ZERO) {
+        if (isZero(other)) {
 
         }
         BigInteger tmp = other;
         tmp.isNegative = false;
         BigInteger result(this->digits.size(), std::vector<DT>(this->digits.size(), 0));
         BigInteger current("0");
-        for (long long i = static_cast<long long>(this->digits.size()) - 1; i >= 0; --i) {
+        for (long long i = static_cast<long long>(result.digits.size()) - 1; i >= 0; --i) {
             current = current.rightShift();
             current.digits[0] = this->digits[i];
             current.shrink();
-            int x = 0, l = 0, r = INTERNAL_BASE;
+            long long x = 0, l = 0, r = INTERNAL_BASE;
             while (l <= r) {
-                int m = (l + r) / 2;
+                long long m = (l + r) / 2;
                 BigInteger t = tmp * BigInteger(std::to_string(m));
                 if (t <= current) {
                     x = m;
@@ -184,7 +186,7 @@ public:
 
     BigInteger sqrt() {
         BigInteger one = BigInteger("1");
-        if (*this == BIG_INTEGER_ZERO || *this == one) return *this;
+        if (isZero(*this) || *this == one) return *this;
         BigInteger result = one, i = one;
         while (result <= *this) {
             i = i + one;
@@ -207,10 +209,10 @@ public:
 int main() {
     freopen("INPUT.TXT", "r", stdin);
     freopen("OUTPUT.TXT", "w", stdout);
-    std::string a;
-    std::cin >> a;
-    BigInteger A(a);
-    BigInteger tmp = (A.sqrt());
+    std::string a, b;
+    std::cin >> a >> b;
+    BigInteger A(a), B(b);
+    BigInteger tmp = A / B;
     std::cout << tmp.toString();
     fclose(stdout);
     fclose(stdin);
