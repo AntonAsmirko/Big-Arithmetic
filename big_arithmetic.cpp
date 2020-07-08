@@ -13,7 +13,7 @@ private:
     bool isNegative;
     bool isNaN{};
 
-    BigInteger(long size, std::vector<DT> digits, bool isNegative) {
+    BigInteger(long long size, std::vector<DT> digits, bool isNegative) {
         this->digits = std::move(digits);
         this->digits.resize(size, 0);
         this->isNegative = isNegative;
@@ -29,7 +29,7 @@ private:
     int compareMagnitude(const BigInteger &another) const {
         if (this->digits.size() > another.digits.size()) return 1;
         else if (this->digits.size() < another.digits.size()) return -1;
-        for (long long i = this->digits.size() -1 ; i >= 0; i--) {
+        for (long long i = this->digits.size() - 1; i >= 0; i--) {
             if (this->digits[i] > another.digits[i]) return 1;
             else if (this->digits[i] < another.digits[i]) return -1;
         }
@@ -128,8 +128,8 @@ public:
 
     BigInteger operator*(const BigInteger &other) const {
         if (isZero(*this) || isZero(other)) return BigInteger("0");
-        const long res_size = this->digits.size() + other.digits.size();
-        BigInteger result(res_size, std::vector<DT>(res_size, (DT)0), this->isNegative ^ other.isNegative);
+        const long long res_size = this->digits.size() + other.digits.size();
+        BigInteger result(res_size, std::vector<DT>(res_size, (DT) 0), this->isNegative ^ other.isNegative);
         for (long i = 0; i < other.digits.size(); i++) {
             DT carry = 0;
             for (long j = 0; j < this->digits.size(); j++) {
@@ -186,15 +186,17 @@ public:
         return result;
     }
 
-    BigInteger sqrt() {
-        BigInteger one = BigInteger("1");
-        if (isZero(*this) || *this == one) return *this;
-        BigInteger result = one, i = one;
-        while (result <= *this) {
-            i = i + one;
-            result = i * i;
+    BigInteger sqrt() const {
+        BigInteger zero(0), one(1), two(2);
+        if (*this < zero) {/* handle NaN */}
+        else if (*this <= one) return *this;
+        BigInteger l(0), r = *this;
+        while (r - l > one) {
+            BigInteger i = (r - l) / two + l;
+            if (i * i <= *this) l = i;
+            else r = i;
         }
-        return i - one;
+        return l;
     }
 
     BigInteger operator%(const BigInteger &other) {
@@ -214,15 +216,19 @@ public:
         return result;
     }
 
+    ~BigInteger() {
+        int a = 0;
+    }
+
 };
 
 int main() {
     freopen("INPUT.TXT", "r", stdin);
     freopen("OUTPUT.TXT", "w", stdout);
-    std::string a, b;
-    std::cin >> a >> b;
-    BigInteger A(a), B(b);
-    auto tmp = A % B;
+    std::string a;
+    std::cin >> a;
+    BigInteger A(a);
+    auto tmp = A.sqrt();
     std::cout << tmp.toString();
     fclose(stdout);
     fclose(stdin);
