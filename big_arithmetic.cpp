@@ -1,8 +1,6 @@
 #include <string>
 #include <iostream>
-#include <utility>
 #include <vector>
-#include <cstdio>
 
 #define DT int
 #define INTERNAL_BASE 10
@@ -203,14 +201,31 @@ public:
     }
 };
 
-int main() {
-    freopen("INPUT.TXT", "r", stdin);
-    freopen("OUTPUT.TXT", "w", stdout);
-    std::string a, b;
-    std::cin >> a >> b;
-    BigInteger A(a), B(b);
-    auto tmp = A + B;
-    std::cout << tmp.toString();
+int main(int argc, char **argv) {
+    if (argc != 3) {
+        std::cout << "Wrong number of arguments\n";
+        exit(1);
+    }
+    freopen(argv[1], "r", stdin);
+    freopen(argv[2], "w", stdout);
+    std::string a, op;
+    std::cin >> a >> op;
+    BigInteger A(a);
+    if (op != "#") {
+        std::string b;
+        std::cin >> b;
+        BigInteger B(b);
+        if (op == "+") std::cout << (A + B).toString();
+        else if (op == "-") std::cout << (A - B).toString();
+        else if (op == "*") std::cout << (A * B).toString();
+        else if (op == "/") std::cout << (A / B).toString();
+        else if (op == ">") std::cout << (A > B);
+        else if (op == "<") std::cout << (A < B);
+        else if (op == "<=") std::cout << (A <= B);
+        else if (op == ">=") std::cout << (A >= B);
+        else if (op == "!=") std::cout << (A != B);
+        else if (op == "==") std::cout << (A == B);
+    } else std::cout << A.sqrt().toString();
     fclose(stdout);
     fclose(stdin);
     return 0;
