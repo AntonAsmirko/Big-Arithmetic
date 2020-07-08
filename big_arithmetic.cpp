@@ -228,7 +228,19 @@ public:
             result[i] = '0' + this->digits[this->digits.size() - 1 - (i - tmp)];
         return result;
     }
+
+    char *toCharArray() const {
+        std::string str = this->toString();
+        char *arr = (char *) malloc(sizeof(char) * str.length());
+        strcpy(arr, str.c_str());
+        return arr;
+    }
 };
+
+void fprintfCharArr(FILE *file, char *format, char *array) {
+    fprintf(file, format, array);
+    free(array);
+}
 
 int main(int argc, char **argv) {
     if (argc != 3) {
@@ -240,30 +252,33 @@ int main(int argc, char **argv) {
         printf("%s\n", "Can't open input file");
         return 1;
     }
-    if (!(out = fopen(argv[2], "r"))) {
+    if (!(out = fopen(argv[2], "w"))) {
         printf("%s\n", "Can't open output file");
         fclose(in);
         return 1;
     }
-    char a[INT_MAX], op[10];
+    char *op = (char *) malloc(sizeof(char) * 3);
+    char *a = (char *) malloc(sizeof(char) * INT_MAX);
     fscanf(in, "%s%s", a, op);
     BigInteger A((std::string(a)));
     bool wasError = false;
+    char formatString[3] = {'%', 's', '\n'};
     try {
-        if (!strcmp(op, "#")) {
-            char b[INT_MAX];
+        if (strcmp(op, "#") != 0) {
+            char *b = (char *) malloc(sizeof(char) * INT_MAX);
             fscanf(in, "%s", b);
             BigInteger B((std::string(b)));
-            if (!strcmp(op, "+")) fprintf(out, "%s\n", (A + B).toString().c_str());
-            else if (!strcmp(op, "-")) fprintf(out, "%s\n", (A - B).toString().c_str());
-            else if (!strcmp(op, "*")) fprintf(out, "%s\n", (A * B).toString().c_str());
-            else if (!strcmp(op, "/")) fprintf(out, "%s\n", (A / B).toString().c_str());
+            if (!strcmp(op, "+"))fprintfCharArr(out, formatString, (A + B).toCharArray());
+            else if (!strcmp(op, "-")) fprintfCharArr(out, formatString, (A - B).toCharArray());
+            else if (!strcmp(op, "*")) fprintfCharArr(out, formatString, (A * B).toCharArray());
+            else if (!strcmp(op, "/")) fprintfCharArr(out, formatString, (A / B).toCharArray());
             else if (!strcmp(op, ">")) fprintf(out, "%d\n", A > B);
             else if (!strcmp(op, "<")) fprintf(out, "%d\n", A < B);
             else if (!strcmp(op, "<=")) fprintf(out, "%d\n", A <= B);
             else if (!strcmp(op, ">=")) fprintf(out, "%d\n", A >= B);
             else if (!strcmp(op, "!=")) fprintf(out, "%d\n", A != B);
             else if (!strcmp(op, "==")) fprintf(out, "%d\n", A == B);
+            free(b);
         } else fprintf(out, "%s\n", A.sqrt().toString().c_str());
     } catch (NaN_ERROR &nanError) {
         wasError = true;
@@ -275,6 +290,8 @@ int main(int argc, char **argv) {
         wasError = true;
         printf("%s\n", "sqrtError");
     }
+    free(a);
+    free(op);
     fclose(in);
     fclose(out);
     if (wasError) return 1;
