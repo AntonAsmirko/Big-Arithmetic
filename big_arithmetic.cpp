@@ -1,15 +1,30 @@
 #include <string>
-#include <iostream>
 #include <vector>
+#include <exception>
+#include <cstdio>
+#include <climits>
+#include <cstring>
 
 #define DT int
 #define INTERNAL_BASE 10
+
+class NaN_ERROR : public std::exception {
+    const char *what() const noexcept override { return "NaN"; }
+};
+
+class DivisionByZeroError : public std::exception {
+    const char *what() const noexcept override { return "division by zero"; }
+};
+
+class SquareRootOfNegativeNumberError : public std::exception {
+    const char *what() const noexcept override { return "square root of negative number"; }
+};
 
 class BigInteger {
 private:
     std::vector<DT> digits;
     bool isNegative;
-    bool isNaN{};
+    bool isNaN = false;
 
     BigInteger(long long size, std::vector<DT> digits, bool isNegative) {
         this->digits = std::move(digits);
@@ -33,6 +48,7 @@ private:
     }
 
     int compare(const BigInteger &another) const {
+        if (another.isNaN || this->isNaN) throw NaN_ERROR();
         if (this->isNegative && !another.isNegative) return -1;
         if (!this->isNegative && another.isNegative) return 1;
         int compare_res = compareMagnitude(another);
@@ -70,9 +86,13 @@ private:
 
 public:
     explicit BigInteger(std::string num) {
-        this->isNegative = num[0] == '-';
-        this->digits.resize(num.length() - (this->isNegative ? 1 : 0));
-        for (long i = 0; i < this->digits.size(); i++) this->digits[i] = num[num.length() - i - 1] - '0';
+        if (num == "NaN") {
+            this->isNaN = true;
+        } else {
+            this->isNegative = num[0] == '-';
+            this->digits.resize(num.length() - (this->isNegative ? 1 : 0));
+            for (long i = 0; i < this->digits.size(); i++) this->digits[i] = num[num.length() - i - 1] - '0';
+        }
     }
 
     explicit BigInteger(signed long long l) {
@@ -105,6 +125,7 @@ public:
     }
 
     BigInteger operator+(const BigInteger &other) const {
+        if (this->isNaN || other.isNaN) throw NaN_ERROR();
         bool areSignsSame = !(this->isNegative ^ other.isNegative);
         if (compareMagnitude(other) == 0 && !areSignsSame) return BigInteger("0");
         BigInteger maxByMagnitude = compareMagnitude(other) == 1 ? *this : other;
@@ -117,6 +138,7 @@ public:
     }
 
     BigInteger operator*(const BigInteger &other) const {
+        if (this->isNaN || other.isNaN) throw NaN_ERROR();
         if (isZero(*this) || isZero(other)) return BigInteger("0");
         const long long res_size = this->digits.size() + other.digits.size();
         BigInteger result(res_size, std::vector<DT>(res_size, (DT) 0), this->isNegative ^ other.isNegative);
@@ -133,7 +155,10 @@ public:
         return result;
     }
 
-    BigInteger operator-(const BigInteger &other) const { return *this + other * BigInteger("-1"); }
+    BigInteger operator-(const BigInteger &other) const {
+        if (this->isNaN || other.isNaN) throw NaN_ERROR();
+        return *this + other * BigInteger("-1");
+    }
 
     void rightShift() {
         this->digits.push_back(this->digits[this->digits.size() - 1]);
@@ -142,6 +167,8 @@ public:
     }
 
     BigInteger operator/(const BigInteger &other) {
+        if (this->isNaN || other.isNaN) throw NaN_ERROR();
+        if (isZero(other)) throw DivisionByZeroError();
         BigInteger otherAbs = other;
         otherAbs.isNegative = false;
         BigInteger result(0), tmp(0);
@@ -168,8 +195,9 @@ public:
     }
 
     BigInteger sqrt() const {
+        if (this->isNaN) throw NaN_ERROR();
         BigInteger zero(0), one(1), two(2);
-        if (*this < zero) {/* handle NaN */}
+        if (*this < zero) throw SquareRootOfNegativeNumberError();
         else if (*this <= one) return *this;
         BigInteger l(0), r = *this;
         BigInteger ans(0);
@@ -186,6 +214,7 @@ public:
     }
 
     BigInteger operator%(const BigInteger &other) {
+        if (this->isNaN || other.isNaN) throw NaN_ERROR();
         BigInteger result = *this - ((*this / other) * other);
         if (result.isNegative) result = result + other;
         return result;
@@ -199,34 +228,72 @@ public:
             result[i] = '0' + this->digits[this->digits.size() - 1 - (i - tmp)];
         return result;
     }
+
+    char *toCharArray() const {
+        std::string str = this->toString();
+        char *arr = (char *) malloc(sizeof(char) * str.length());
+        strcpy(arr, str.c_str());
+        return arr;
+    }
 };
+
+void fprintfCharArr(FILE *file, char *format, char *array) {
+    fprintf(file, format, array);
+    free(array);
+}
 
 int main(int argc, char **argv) {
     if (argc != 3) {
-        std::cout << "Wrong number of arguments\n";
-        exit(1);
+        printf("%s\n", "Wrong number of arguments");
+        return 1;
     }
-    freopen(argv[1], "r", stdin);
-    freopen(argv[2], "w", stdout);
-    std::string a, op;
-    std::cin >> a >> op;
-    BigInteger A(a);
-    if (op != "#") {
-        std::string b;
-        std::cin >> b;
-        BigInteger B(b);
-        if (op == "+") std::cout << (A + B).toString();
-        else if (op == "-") std::cout << (A - B).toString();
-        else if (op == "*") std::cout << (A * B).toString();
-        else if (op == "/") std::cout << (A / B).toString();
-        else if (op == ">") std::cout << (A > B);
-        else if (op == "<") std::cout << (A < B);
-        else if (op == "<=") std::cout << (A <= B);
-        else if (op == ">=") std::cout << (A >= B);
-        else if (op == "!=") std::cout << (A != B);
-        else if (op == "==") std::cout << (A == B);
-    } else std::cout << A.sqrt().toString();
-    fclose(stdout);
-    fclose(stdin);
+    FILE *in, *out;
+    if (!(in = fopen(argv[1], "r"))) {
+        printf("%s\n", "Can't open input file");
+        return 1;
+    }
+    if (!(out = fopen(argv[2], "w"))) {
+        printf("%s\n", "Can't open output file");
+        fclose(in);
+        return 1;
+    }
+    char *op = (char *) malloc(sizeof(char) * 3);
+    char *a = (char *) malloc(sizeof(char) * INT_MAX);
+    fscanf(in, "%s%s", a, op);
+    BigInteger A((std::string(a)));
+    bool wasError = false;
+    char formatString[3] = {'%', 's', '\n'};
+    try {
+        if (strcmp(op, "#") != 0) {
+            char *b = (char *) malloc(sizeof(char) * INT_MAX);
+            fscanf(in, "%s", b);
+            BigInteger B((std::string(b)));
+            if (!strcmp(op, "+"))fprintfCharArr(out, formatString, (A + B).toCharArray());
+            else if (!strcmp(op, "-")) fprintfCharArr(out, formatString, (A - B).toCharArray());
+            else if (!strcmp(op, "*")) fprintfCharArr(out, formatString, (A * B).toCharArray());
+            else if (!strcmp(op, "/")) fprintfCharArr(out, formatString, (A / B).toCharArray());
+            else if (!strcmp(op, ">")) fprintf(out, "%d\n", A > B);
+            else if (!strcmp(op, "<")) fprintf(out, "%d\n", A < B);
+            else if (!strcmp(op, "<=")) fprintf(out, "%d\n", A <= B);
+            else if (!strcmp(op, ">=")) fprintf(out, "%d\n", A >= B);
+            else if (!strcmp(op, "!=")) fprintf(out, "%d\n", A != B);
+            else if (!strcmp(op, "==")) fprintf(out, "%d\n", A == B);
+            free(b);
+        } else fprintf(out, "%s\n", A.sqrt().toString().c_str());
+    } catch (NaN_ERROR &nanError) {
+        wasError = true;
+        printf("%s\n", "nanError");
+    } catch (DivisionByZeroError &divByZeroError) {
+        wasError = true;
+        printf("%s\n", "divError");
+    } catch (SquareRootOfNegativeNumberError &sqrtError) {
+        wasError = true;
+        printf("%s\n", "sqrtError");
+    }
+    free(a);
+    free(op);
+    fclose(in);
+    fclose(out);
+    if (wasError) return 1;
     return 0;
 }
